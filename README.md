@@ -11,7 +11,7 @@ You can check full demo here: [media/demo.mp4](https://github.com/ShellAddicted/
 Demo Details:  
 - RPI 3B + Picamera -> provides video feed to the PC over WiFi (running [videoStreamer.py](https://github.com/ShellAddicted/IceBreaker/blob/master/src/videoStreamer.py))
 - RC Car (toy) with an ESP32 onboard controlled over WiFi
-- PC (software tested under Arch Linux, but it should under windows & other distros)
+- PC (software tested under Arch Linux, but it should work also under windows & other distros)
 
 # Requirements
 - Python (>=3.6)  
