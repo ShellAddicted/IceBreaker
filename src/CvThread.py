@@ -11,6 +11,10 @@ try:
 except ImportError:
     raise ImportError("OpenCV is not installed, (or make sure you have enabled its python bindings)")
 
+from SignalDetector import SignalDetector
+
+cv2.ocl.setUseOpenCL(True)
+
 
 class CvThread(threading.Thread):
 
@@ -23,6 +27,8 @@ class CvThread(threading.Thread):
 
         self._evt = threading.Event()  # Quit Event
         self._autoPilotEnabled = False
+        self._signals = [SignalDetector("Stop", cv2.imread("media/TrafficSignals/stop.png", 0), 12)]
+        self._threads = []
 
     def _drive(self, data):
         # Override this method with your real car controls
@@ -43,6 +49,10 @@ class CvThread(threading.Thread):
                 continue
 
             frameBGR = self._q.get()  # Get Frame
+            frameGray = cv2.cvtColor(frameBGR, cv2.COLOR_BGR2GRAY)
+            for detector in self._signals:
+                self._threads.append(threading.Thread(target=detector.detect, args=(frameGray,)))
+                self._threads[-1].start()
 
             # Extract ROI from frame
             if self._roiEnabled:
@@ -107,6 +117,16 @@ class CvThread(threading.Thread):
                 cv2.putText(frameBGR, "AutoPilot: ON", (0, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             else:
                 cv2.putText(frameBGR, "AutoPilot: OFF", (0, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
+            for t in self._threads:
+                t.join()
+            self._threads = []
+
+            for sign in self._signals:
+                cv2.polylines(frameBGR, sign.result, True, 255, 3, cv2.LINE_AA)
+            if sign.result is not None:
+                cv2.putText(frameBGR, sign._name , tuple(sign.result[0][0][0]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
             cv2.imshow('frame', frameBGR)
             self._q.task_done()
 
