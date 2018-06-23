@@ -80,14 +80,15 @@ class CvThread(threading.Thread):
                     bestContour += ROI_OFFSETS
                     cv2.drawContours(frameBGR, bestContour, -1, (0, 255, 0), 2)
 
-                    wqd = tuple(bestContour[bestContour[:, :, 1].argmin()][0])  # Most external Top point
-                    cv2.circle(frameBGR, wqd, 7, (255, 255, 255), -1)
-                    extTop = np.array([wqd[0], wqd[1]], int)
+                    M = cv2.moments(bestContour)
+                    centerOfContour = np.array([int(M['m10'] / M['m00']), int(M['m01'] / M['m00'])], int)
+                    #cv2.circle(frameBGR, centerOfContour, 7, (255, 255, 255), -1)
 
-                    # df is the distance (px) between the center of the frame (center of car) and the most external top point of the line
+                    # df is the distance (px) between the center of the frame (center of car) and center of contour
                     # df[0] -> X axis distance
                     # df[1] -> Y axis distance
-                    df = centerOfFrame - extTop
+                    df = centerOfFrame - centerOfContour
+                    cv2.putText(frameBGR, "Cross Track Error (x): " + str(df[0]), (0, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                     if self._autoPilotEnabled:
                         self._drive(df)
                 else:
@@ -100,8 +101,7 @@ class CvThread(threading.Thread):
 
             # UI: Draw xAxis median line && Center of Frame
             cv2.circle(frameBGR, (centerOfFrame[0], centerOfFrame[1]), 7, (255, 255, 255), -1)
-            cv2.line(frameBGR, (centerOfFrame[0], 0), (centerOfFrame[0], frameBGR.shape[0]),
-                     (0, 255, 255), 2)
+            cv2.line(frameBGR, (centerOfFrame[0], 0), (centerOfFrame[0], frameBGR.shape[0]), (0, 255, 255), 2)
 
             if self._autoPilotEnabled:
                 cv2.putText(frameBGR, "AutoPilot: ON", (0, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
