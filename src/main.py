@@ -1,10 +1,10 @@
 import time
 import queue
 import logging
-
+import cv2
 from CameraThread import CameraThread
 from CvThread import CvThread
-
+from SignalDetector import SignalDetector
 
 def main():
     logging.basicConfig(
@@ -20,8 +20,8 @@ def main():
     # in DEMO videofeed is provided by a RPI 3B and videoStreamer.py
     camTh = CameraThread("http://192.168.12.131:8000/stream.mjpg", lst)
     camTh.start()
-
-    cvTh = CvThread(lst, (0, 0, 0, 0), (180, 255, 35, 0), True)
+    # cvTh = CvThread(lst, (0, 0, 0, 0), (180, 255, 35, 0), True, [SignalDetector("Stop", cv2.imread("media/TrafficSignals/stop.png", cv2.IMREAD_GRAYSCALE), 2)])
+    cvTh = CvThread(lst, (0, 0, 0, 0), (180, 255, 35, 0), True, [])
     cvTh.start()
 
     while True:

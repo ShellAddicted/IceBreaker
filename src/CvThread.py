@@ -10,15 +10,11 @@ try:
     import cv2
 except ImportError:
     raise ImportError("OpenCV is not installed, (or make sure you have enabled its python bindings)")
-
-from SignalDetector import SignalDetector
-
 cv2.ocl.setUseOpenCL(True)
-
 
 class CvThread(threading.Thread):
 
-    def __init__(self, q, lowerColorHSV = (0,0,0,0), upperColorHSV=(180,255,35,0), roiEnabled=True):
+    def __init__(self, q, lowerColorHSV=(0, 0, 0, 0), upperColorHSV=(180, 255, 35, 0), roiEnabled=True, signals=None):
         super(CvThread, self).__init__(name="CvThread")
         self._q = q  # Frames Queue (Shared with cameraThread)
         self._lowerColorHSV = lowerColorHSV
@@ -27,7 +23,7 @@ class CvThread(threading.Thread):
 
         self._evt = threading.Event()  # Quit Event
         self._autoPilotEnabled = False
-        self._signals = [SignalDetector("Stop", cv2.imread("media/TrafficSignals/stop.png", 0), 12)]
+        self._signals = [] if signals is None else signals
         self._threads = []
 
     def _drive(self, data):
@@ -124,8 +120,9 @@ class CvThread(threading.Thread):
 
             for sign in self._signals:
                 cv2.polylines(frameBGR, sign.result, True, 255, 3, cv2.LINE_AA)
-            if sign.result is not None:
-                cv2.putText(frameBGR, sign._name , tuple(sign.result[0][0][0]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                if sign is not None and sign.result is not None:
+                    cv2.putText(frameBGR, sign._name, tuple(sign.result[0][0][0]), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                                (255, 255, 255), 2)
 
             cv2.imshow('frame', frameBGR)
             self._q.task_done()
