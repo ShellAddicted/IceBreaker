@@ -1,14 +1,22 @@
 import time
 import queue
 import logging
-import cv2
+
+try:
+    import numpy as np
+    import cv2
+except ImportError:
+    raise ImportError("OpenCV is not installed, (or make sure you have enabled its python bindings)")
+
 from CameraThread import CameraThread
+# from Pilot import Pilot as CvThread
 from CvThread import CvThread
 from SignalDetector import SignalDetector
 
+
 def main():
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s",
         handlers=[
             logging.StreamHandler()
@@ -17,27 +25,22 @@ def main():
 
     lst = queue.LifoQueue(5)
     # Video source can be anything compatible with cv2.VideoCapture.open()
+    # if source is wsCamera url must start with ws://
     # in DEMO videofeed is provided by a RPI 3B and videoStreamer.py
-    camTh = CameraThread("http://192.168.12.131:8000/stream.mjpg", lst)
+
+    # camTh = CameraThread("ws://192.168.12.131:8000/ws", lst)
+    camTh = CameraThread("http://192.168.1.244:8080/video", lst)
+    # camTh = CameraThread(0, lst)
+    camTh.setDaemon(True)
     camTh.start()
-    # cvTh = CvThread(lst, (0, 0, 0, 0), (180, 255, 35, 0), True, [SignalDetector("Stop", cv2.imread("media/TrafficSignals/stop.png", cv2.IMREAD_GRAYSCALE), 2)])
+
+    # cvTh = CvThread(lst, (0, 0, 0, 0), (180, 255, 35, 0), True,
+    #                [SignalDetector("Stop", cv2.imread("media/TrafficSignals/stop.png", cv2.IMREAD_GRAYSCALE), 12)])
     cvTh = CvThread(lst, (0, 0, 0, 0), (180, 255, 35, 0), True, [])
     cvTh.start()
-
-    while True:
-        # Who dies first kills the other
-        if not camTh.isAlive():
-            cvTh._evt.set()
-
-        if not cvTh.isAlive():
-            camTh._evt.set()
-
-        # If everyone is dead, quit mainThread
-        if not cvTh.isAlive() and not camTh.isAlive():
-            break
-        time.sleep(0.1)  # Save a bit of CPU
     logging.debug("quit")
 
 
+1
 if __name__ == "__main__":
     main()

@@ -1,4 +1,3 @@
-import logging
 import numpy as np
 import cv2
 
@@ -20,7 +19,7 @@ class SignalDetector:
 
     def detect(self, image):
         try:
-            self.result = None
+            self.result = None # Clean Previous result
             (kps, descs) = self._sift.detectAndCompute(image, None)
             matches = self._flann.knnMatch(self._train_descs, descs, k=2)
 
@@ -33,14 +32,13 @@ class SignalDetector:
                 src_pts = np.float32([self._train_kps[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
                 dst_pts = np.float32([kps[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
 
-                M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+                m, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
 
                 h, w = self._trainImgShape
                 pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
-                dst = cv2.perspectiveTransform(pts, M)
+                dst = cv2.perspectiveTransform(pts, m)
 
                 self.result = [np.int32(dst)]
-
-                #image = cv2.polylines(image, [np.int32(dst)], True, 255, 3, cv2.LINE_AA)
+                # to draw results use cv2.polylines(image, [np.int32(dst)], True, 255, 3, cv2.LINE_AA)
         except:
-            pass #logging.error("Exc", exc_info=True)
+            pass

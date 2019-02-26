@@ -1,20 +1,23 @@
-import io
 import time
 import logging
+import io
 import queue
-import socketserver
-from http import server
+
+try:
+    import tornado
+    import tornado.web
+    import tornado.websocket
+except ImportError:
+    raise ImportError("Install tornado, example: #pip3 install tornado")
 
 try:
     import picamera
 except ImportError:
     raise ImportError("Install picamera, example: #pip3 install picamera")
 
-framesQueue = queue.Queue(5)
-
+frames = queue.LifoQueue(1)
 
 class StreamingOutput(object):
-    _q = framesQueue
 
     def __init__(self, showFPS=False):
         self._showFPS = showFPS
@@ -39,43 +42,29 @@ class StreamingOutput(object):
             if self._showFPS:
                 self._detectFPS()
             self._buffer.truncate()
-            self._q.put(self._buffer.getvalue())
+            frames.put(self._buffer.getvalue())
             self._buffer.seek(0)
         return self._buffer.write(buf)
 
 
-class StreamingHandler(server.BaseHTTPRequestHandler):
-    _q = framesQueue
+class WebSocket(tornado.websocket.WebSocketHandler):
 
-    def do_GET(self):
-        if self.path == '/stream.mjpg':
-            self.send_response(200)
-            self.send_header('Age', 0)
-            self.send_header('Cache-Control', 'no-cache, private')
-            self.send_header('Pragma', 'no-cache')
-            self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=FRAME')
-            self.end_headers()
-            while True:
-                if self._q.empty():
-                    continue
-                frame = self._q.get()
-                self.wfile.write(b'--FRAME\r\n')
-                self.send_header('Content-Type', 'image/jpeg')
-                self.send_header('Content-Length', len(frame))
-                self.end_headers()
-                self.wfile.write(frame)
-                self.wfile.write(b'\r\n')
-                self._q.task_done()
+    def check_origin(self, origin):
+        return True
 
-        else:  # Redirect all GET Requests to the stream
-            self.send_response(301)
-            self.send_header('Location', '/stream.mjpg')
-            self.end_headers()
+    def open(self, *args, **kwargs):
+        logging.info("Serving client")
+        while 1:
+            try:
+                self.write_message(bytes(frames.get()), True)
+                frames.task_done()
+            except tornado.websocket.WebSocketClosedError:
+                logging.info("Client disconnected")
+                break
+            except:
+                logging.error("exc", exc_info=True)
+                break
 
-
-class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
-    allow_reuse_address = True
-    daemon_threads = True
 
 
 def main():
@@ -90,11 +79,12 @@ def main():
     with picamera.PiCamera(resolution='640x480', framerate=30) as camera:
         camera.start_recording(StreamingOutput(), format='mjpeg')
         camera.rotation = 180
+        handlers = [(r"/ws", WebSocket)]
+        application = tornado.web.Application(handlers)
+        application.listen(8000)
+
         try:
-            address = ('0.0.0.0', 8000)
-            logging.info("Streaming started @ http://{}:{}/stream.mjpg".format(address[0], address[1]))
-            server = StreamingServer(address, StreamingHandler)
-            server.serve_forever()
+            tornado.ioloop.IOLoop.instance().start()
         except KeyboardInterrupt:
             logging.info("CTRL+C detected.")
         finally:
